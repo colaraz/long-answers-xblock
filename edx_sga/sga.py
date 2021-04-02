@@ -77,7 +77,7 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
     """
     has_score = True
     icon_class = 'problem'
-    STUDENT_FILEUPLOAD_MAX_SIZE = 4 * 1000 * 1000  # 500 MB
+    STUDENT_FILEUPLOAD_MAX_SIZE = 500 * 1000 * 1000  # 500 MB
     editable_fields = ('display_name', 'points', 'weight', 'showanswer', 'solution')
 
     display_name = String(
@@ -153,11 +153,7 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         """
         returns max file size limit in system
         """
-        return getattr(
-            settings,
-            "STUDENT_FILEUPLOAD_MAX_SIZE",
-            cls.STUDENT_FILEUPLOAD_MAX_SIZE
-        )
+        return cls.STUDENT_FILEUPLOAD_MAX_SIZE
 
     @classmethod
     def file_size_over_limit(cls, file_obj):
