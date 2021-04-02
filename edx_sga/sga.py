@@ -153,11 +153,7 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         """
         returns max file size limit in system
         """
-        return getattr(
-            settings,
-            "STUDENT_FILEUPLOAD_MAX_SIZE",
-            cls.STUDENT_FILEUPLOAD_MAX_SIZE
-        )
+        return cls.STUDENT_FILEUPLOAD_MAX_SIZE
 
     @classmethod
     def file_size_over_limit(cls, file_obj):
