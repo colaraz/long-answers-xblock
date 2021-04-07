@@ -37,18 +37,11 @@ from xmodule.contentstore.content import StaticContent
 
 from edx_sga.constants import ITEM_TYPE
 from edx_sga.showanswer import ShowAnswerXBlockMixin
-from edx_sga.tasks import (
-    get_zip_file_name,
-    get_zip_file_path,
-    zip_student_submissions
-)
+
 from edx_sga.utils import (
-    get_sha1,
     utcnow,
     is_finalized_submission,
-    get_file_modified_time_utc,
-    get_file_storage_path,
-    file_contents_iter,
+    get_file_storage_path
 )
 
 log = logging.getLogger(__name__)
@@ -77,12 +70,11 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
     """
     has_score = True
     icon_class = 'problem'
-    STUDENT_FILEUPLOAD_MAX_SIZE = 500 * 1000 * 1000  # 500 MB
     editable_fields = ('display_name', 'points', 'weight', 'showanswer', 'solution')
 
     display_name = String(
         display_name=_("Display Name"),
-        default=_('Staff Graded Assignment'),
+        default=_('Long Question'),
         scope=Scope.settings,
         help=_("This name appears in the horizontal navigation at the top of "
                "the page.")
@@ -119,49 +111,12 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         help=_("Feedback given to student by instructor.")
     )
 
-    annotated_sha1 = String(
-        display_name=_("Annotated SHA1"),
+    student_answer = String(
+        display_name=_("Answer"),
         scope=Scope.user_state,
         default=None,
-        help=_("sha1 of the annotated file uploaded by the instructor for "
-               "this assignment.")
+        help=_("Student answer to the question")
     )
-
-    annotated_filename = String(
-        display_name=_("Annotated file name"),
-        scope=Scope.user_state,
-        default=None,
-        help=_("The name of the annotated file uploaded for this assignment.")
-    )
-
-    annotated_mimetype = String(
-        display_name=_("Mime type of annotated file"),
-        scope=Scope.user_state,
-        default=None,
-        help=_("The mimetype of the annotated file uploaded for this assignment.")
-    )
-
-    annotated_timestamp = DateTime(
-        display_name=_("Timestamp"),
-        scope=Scope.user_state,
-        default=None,
-        help=_("When the annotated file was uploaded")
-    )
-
-    @classmethod
-    def student_upload_max_size(cls):
-        """
-        returns max file size limit in system
-        """
-        return cls.STUDENT_FILEUPLOAD_MAX_SIZE
-
-    @classmethod
-    def file_size_over_limit(cls, file_obj):
-        """
-        checks if file size is under limit.
-        """
-        file_obj.seek(0, os.SEEK_END)
-        return file_obj.tell() > cls.student_upload_max_size()
 
     @classmethod
     def parse_xml(cls, node, runtime, keys, id_generator):
@@ -245,31 +200,16 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         require(self.upload_allowed())
         user = self.get_real_user()
         require(user)
-        upload = request.params['assignment']
-        sha1 = get_sha1(upload.file)
-        if self.file_size_over_limit(upload.file):
-            raise JsonHandlerError(
-                413, 'Unable to upload file. Max size limit is {size}'.format(
-                    size=self.student_upload_max_size()
-                )
-            )
+        assignment_answer = request.params['assignment_answer']
         # Uploading an assignment represents a change of state with this user in this block,
         # so we need to ensure that the user has a StudentModule record, which represents that state.
         self.get_or_create_student_module(user)
         answer = {
-            "sha1": sha1,
-            "filename": upload.file.name,
-            "mimetype": mimetypes.guess_type(upload.file.name)[0],
+            "student_answer": assignment_answer,
             "finalized": False
         }
         student_item_dict = self.get_student_item_dict()
         submissions_api.create_submission(student_item_dict, answer)
-        path = self.file_storage_path(sha1, upload.file.name)
-        log.info("Saving file: %s at path: %s for user: %s", upload.file.name, path, user.username)
-        if default_storage.exists(path):
-            # save latest submission
-            default_storage.delete(path)
-        default_storage.save(path, File(upload.file))
         return Response(json_body=self.student_state())
 
     @XBlock.handler
@@ -280,113 +220,31 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         given block, and makes the submission available to instructors for grading
         """
         submission_data = self.get_submission()
-        require(self.upload_allowed(submission_data=submission_data))
-        # Editing the Submission record directly since the API doesn't support it
-        submission = Submission.objects.get(uuid=submission_data['uuid'])
-        if not submission.answer.get('finalized'):
-            submission.answer['finalized'] = True
-            submission.submitted_at = django_now()
-            submission.save()
+        require(self.upload_allowed())
+        if submission_data is None:
+            user = self.get_real_user()
+            require(user)
+            assignment_answer = request.params['assignment_answer']
+            self.get_or_create_student_module(user)
+            answer = {
+                "student_answer": assignment_answer,
+                "finalized": True
+            }
+            student_item_dict = self.get_student_item_dict()
+            submissions_api.create_submission(student_item_dict, answer)
+        else:
+            # Editing the Submission record directly since the API doesn't support it
+            submission = Submission.objects.get(uuid=submission_data['uuid'])
+            if not submission.answer.get('finalized'):
+                submission.answer['finalized'] = True
+                submission.submitted_at = django_now()
+                submission.save()
         return Response(json_body=self.student_state())
 
-    @XBlock.handler
-    def staff_upload_annotated(self, request, suffix=''):
-        # pylint: disable=unused-argument
-        """
-        Save annotated assignment from staff.
-        """
-        require(self.is_course_staff())
-        upload = request.params['annotated']
-        sha1 = get_sha1(upload.file)
-        if self.file_size_over_limit(upload.file):
-            raise JsonHandlerError(
-                413, 'Unable to upload file. Max size limit is {size}'.format(
-                    size=self.student_upload_max_size()
-                )
-            )
-        module = self.get_student_module(request.params['module_id'])
-        state = json.loads(module.state)
-        state['annotated_sha1'] = sha1
-        state['annotated_filename'] = filename = upload.file.name
-        state['annotated_mimetype'] = mimetypes.guess_type(upload.file.name)[0]
-        state['annotated_timestamp'] = utcnow().strftime(
-            DateTime.DATETIME_FORMAT
-        )
-        path = self.file_storage_path(sha1, filename)
-        if not default_storage.exists(path):
-            default_storage.save(path, File(upload.file))
-        module.state = json.dumps(state)
-        module.save()
-        log.info(
-            "staff_upload_annotated for course:%s module:%s student:%s ",
-            module.course_id,
-            module.module_state_key,
-            module.student.username
-        )
-        return Response(json_body=self.staff_grading_data())
 
     @XBlock.handler
-    def download_assignment(self, request, suffix=''):
-        # pylint: disable=unused-argument
-        """
-        Fetch student assignment from storage and return it.
-        """
-        answer = self.get_submission()['answer']
-        path = self.file_storage_path(answer['sha1'], answer['filename'])
-        return self.download(path, answer['mimetype'], answer['filename'])
-
-    @XBlock.handler
-    def download_annotated(self, request, suffix=''):
-        # pylint: disable=unused-argument
-        """
-        Fetch assignment with staff annotations from storage and return it.
-        """
-        path = self.file_storage_path(
-            self.annotated_sha1,
-            self.annotated_filename,
-        )
-        return self.download(
-            path,
-            self.annotated_mimetype,
-            self.annotated_filename
-        )
-
-    @XBlock.handler
-    def staff_download(self, request, suffix=''):
-        # pylint: disable=unused-argument
-        """
-        Return an assignment file requested by staff.
-        """
-        require(self.is_course_staff())
-        submission = self.get_submission(request.params['student_id'])
-        answer = submission['answer']
-        path = self.file_storage_path(answer['sha1'], answer['filename'])
-        return self.download(
-            path,
-            answer['mimetype'],
-            answer['filename'],
-            require_staff=True
-        )
-
-    @XBlock.handler
-    def staff_download_annotated(self, request, suffix=''):
-        # pylint: disable=unused-argument
-        """
-        Return annotated assignment file requested by staff.
-        """
-        require(self.is_course_staff())
-        module = self.get_student_module(request.params['module_id'])
-        state = json.loads(module.state)
-        path = self.file_storage_path(
-            state['annotated_sha1'],
-            state['annotated_filename']
-        )
-        return self.download(
-            path,
-            state['annotated_mimetype'],
-            state['annotated_filename'],
-            require_staff=True
-        )
+    def get_student_state(self, request, suffix=''):
+        return Response(json_body=self.student_state())
 
     @XBlock.handler
     def get_staff_grading_data(self, request, suffix=''):
@@ -424,7 +282,6 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
                     module.student.username
                 )
             )
-
         if self.is_instructor():
             uuid = request.params['submission_id']
             submissions_api.set_score(uuid, score, self.max_score())
@@ -459,10 +316,7 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         state = json.loads(module.state)
         state['staff_score'] = None
         state['comment'] = ''
-        state['annotated_sha1'] = None
-        state['annotated_filename'] = None
-        state['annotated_mimetype'] = None
-        state['annotated_timestamp'] = None
+        state['student_answer'] = ''
         module.state = json.dumps(state)
         module.save()
         log.info(
@@ -473,99 +327,6 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         )
         return Response(json_body=self.staff_grading_data())
 
-    @XBlock.handler
-    def prepare_download_submissions(self, request, suffix=''):  # pylint: disable=unused-argument
-        """
-        Runs a async task that collects submissions in background and zip them.
-        """
-        require(self.is_course_staff())
-        user = self.get_real_user()
-        require(user)
-        zip_file_ready = False
-        location = unicode(self.location)
-
-        if self.is_zip_file_available(user):
-            log.info("Zip file already available for block: %s for instructor: %s", location, user.username)
-            assignments = self.get_sorted_submissions()
-            if assignments:
-                last_assignment_date = assignments[0]['timestamp'].astimezone(pytz.utc)
-                zip_file_path = get_zip_file_path(
-                    user.username,
-                    self.block_course_id,
-                    self.block_id,
-                    self.location
-                )
-                zip_file_time = get_file_modified_time_utc(zip_file_path)
-                log.info(
-                    "Zip file modified time: %s, last zip file time: %s for block: %s for instructor: %s",
-                    last_assignment_date,
-                    zip_file_time,
-                    location,
-                    user.username
-                )
-                # if last zip file is older the last submission then recreate task
-                if zip_file_time >= last_assignment_date:
-                    zip_file_ready = True
-
-        if not zip_file_ready:
-            log.info("Creating new zip file for block: %s for instructor: %s", location, user.username)
-            zip_student_submissions.delay(
-                self.block_course_id,
-                self.block_id,
-                location,
-                user.username
-            )
-
-        return Response(json_body={
-            "downloadable": zip_file_ready
-        })
-
-    @XBlock.handler
-    def download_submissions(self, request, suffix=''):  # pylint: disable=unused-argument
-        """
-        Api for downloading zip file which consist of all students submissions.
-        """
-        require(self.is_course_staff())
-        user = self.get_real_user()
-        require(user)
-        try:
-            zip_file_path = get_zip_file_path(
-                user.username,
-                self.block_course_id,
-                self.block_id,
-                self.location
-            )
-            zip_file_name = get_zip_file_name(
-                user.username,
-                self.block_course_id,
-                self.block_id
-            )
-            return Response(
-                app_iter=file_contents_iter(zip_file_path),
-                content_type='application/zip',
-                content_disposition="attachment; filename=" + zip_file_name.encode('utf-8')
-            )
-        except IOError:
-            return Response(
-                "Sorry, submissions cannot be found. Press Collect ALL Submissions button or"
-                " contact {} if you issue is consistent".format(settings.TECH_SUPPORT_EMAIL),
-                status_code=404
-            )
-
-    @XBlock.handler
-    def download_submissions_status(self, request, suffix=''):  # pylint: disable=unused-argument
-        """
-        returns True if zip file is available for download
-        """
-        require(self.is_course_staff())
-        user = self.get_real_user()
-        require(user)
-        return Response(
-            json_body={
-                "zip_available": self.is_zip_file_available(user)
-            }
-        )
-
     def student_view(self, context=None):
         # pylint: disable=no-member
         """
@@ -575,7 +336,6 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         context = {
             "student_state": json.dumps(self.student_state()),
             "id": self.location.name.replace('.', '_'),
-            "max_file_size": self.student_upload_max_size(),
             "support_email": settings.TECH_SUPPORT_EMAIL
         }
         if self.show_staff_grading_interface():
@@ -592,7 +352,8 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         fragment.add_css(_resource("static/css/edx_sga.css"))
         fragment.add_javascript(_resource("static/js/src/edx_sga.js"))
         fragment.add_javascript(_resource("static/js/src/jquery.tablesorter.min.js"))
-        fragment.initialize_js('StaffGradedAssignmentXBlock')
+        fragment.add_javascript_url('https://cdn.ckeditor.com/ckeditor5/27.0.0/classic/ckeditor.js')
+        fragment.initialize_js('StaffGradedAssignmentXBlock', self.student_state())
         return fragment
 
     def studio_view(self, context=None):  # pylint: disable=useless-super-delegation
@@ -614,11 +375,6 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         for submission in submissions_api.get_submissions(
                 self.get_student_item_dict(student_id)
         ):
-            submission_file_sha1 = submission['answer'].get('sha1')
-            submission_filename = submission['answer'].get('filename')
-            submission_file_path = self.file_storage_path(submission_file_sha1, submission_filename)
-            if default_storage.exists(submission_file_path):
-                default_storage.delete(submission_file_path)
             submissions_api.reset_score(
                 student_id,
                 self.block_course_id,
@@ -750,14 +506,9 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         """
         submission = self.get_submission()
         if submission:
-            uploaded = {"filename": submission['answer']['filename']}
+            uploaded = submission['answer']
         else:
             uploaded = None
-
-        if self.annotated_sha1:
-            annotated = {"filename": force_text(self.annotated_filename)}
-        else:
-            annotated = None
 
         score = self.score
         if score is not None:
@@ -773,7 +524,6 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         return {
             "display_name": force_text(self.display_name),
             "uploaded": uploaded,
-            "annotated": annotated,
             "graded": graded,
             "max_score": self.max_score(),
             "upload_allowed": self.upload_allowed(submission_data=submission),
@@ -790,7 +540,7 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
             # pylint: disable=no-member
             """
             Returns a dict of student assignment information along with
-            annotated file name, student id and module id, this
+            student id and module id, this
             information will be used on grading screen
             """
             # Submissions doesn't have API for this, just use model directly.
@@ -818,7 +568,7 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
                     'submission_id': submission['uuid'],
                     'username': student_module.student.username,
                     'fullname': student_module.student.profile.name,
-                    'filename': submission['answer']["filename"],
+                    'student_answer': submission['answer']["student_answer"],
                     'timestamp': submission['created_at'].strftime(
                         DateTime.DATETIME_FORMAT
                     ),
@@ -826,7 +576,6 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
                     'approved': approved,
                     'needs_approval': instructor and needs_approval,
                     'may_grade': instructor or not approved,
-                    'annotated': force_text(state.get("annotated_filename", '')),
                     'comment': force_text(state.get("comment", '')),
                     'finalized': is_finalized_submission(submission_data=submission)
                 }
@@ -850,7 +599,7 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
             if is_finalized_submission(submission_data=submission):
                 assignments.append({
                     'submission_id': submission['uuid'],
-                    'filename': submission['answer']["filename"],
+                    'student_answer': submission['answer']["student_answer"],
                     'timestamp': submission['submitted_at'] or submission['created_at']
                 })
 
@@ -858,32 +607,6 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
             key=lambda assignment: assignment['timestamp'], reverse=True
         )
         return assignments
-
-    def download(self, path, mime_type, filename, require_staff=False):
-        """
-        Return a file from storage and return in a Response.
-        """
-        try:
-            return Response(
-                app_iter=file_contents_iter(path),
-                content_type=mime_type,
-                content_disposition="attachment; filename*=UTF-8''" + urllib.quote(filename.encode('utf-8'))
-            )
-        except IOError:
-            if require_staff:
-                return Response(
-                    "Sorry, assignment {} cannot be found at"
-                    " {}. Please contact {}".format(
-                        filename.encode('utf-8'), path, settings.TECH_SUPPORT_EMAIL
-                    ),
-                    status_code=404
-                )
-            return Response(
-                "Sorry, the file you uploaded, {}, cannot be"
-                " found. Please try uploading it again or contact"
-                " course staff".format(filename.encode('utf-8')),
-                status_code=404
-            )
 
     def validate_score_message(self, course_id, username):  # lint-amnesty, pylint: disable=missing-docstring
         log.error(
@@ -955,18 +678,6 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         Helper method to get the path of an uploaded file
         """
         return get_file_storage_path(self.location, file_hash, original_filename)
-
-    def is_zip_file_available(self, user):
-        """
-        returns True if zip file exists.
-        """
-        zip_file_path = get_zip_file_path(
-            user.username,
-            self.block_course_id,
-            self.block_id,
-            self.location
-        )
-        return True if default_storage.exists(zip_file_path) else False
 
     def get_real_user(self):
         """returns session user"""

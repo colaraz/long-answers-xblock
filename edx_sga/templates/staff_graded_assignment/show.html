@@ -1,6 +1,6 @@
 {% load i18n %}
 
-<div class="sga-block" data-state="{{ student_state }}"
+<div class="sga-block"
      data-max-size="{{ max_file_size }}" data-support-email="{{ support_email }}"
      data-staff="{{ is_course_staff }}">
   <script type="text/template" id="sga-tmpl">
@@ -9,36 +9,39 @@
         <b><%= display_name %></b>
       </p>
     <% } %>
+
     <% if (upload_allowed) { %>
-      <p class="upload">
+      <form id="student-answer-form">
+        <div id="toolbar-container"></div>
+        <textarea id="student-answer-textarea" name="assignment_answer"/>
+        <p class="upload">
         <label>
-          <% if (uploaded) { %>
-            {% trans "Upload a different file" %}
-          <% } else { %>
-            {% trans "Upload your assignment" %}
-          <% } %>
-          <input class="fileupload" type="file" name="assignment" />
+          {% trans "Save" %}
+          <input class="fileupload" type="submit"/>
         </label>
-      </p>
+        </p>
+        <% if (success) { %>
+          <p id="success-message"><b><%= success %></b></p>
+        <% } %>
+      </form>
     <% } %>
+
     <% if (uploaded) { %>
       <div class="sequential-status-message">
-        <p>
-          <b>{% trans "File uploaded" %}</b>
-          <a href="<%= downloadUrl %>"><%= uploaded.filename %></a>
-        </p>
+        <% if (!uploaded.finalized) { %>
+          <p><b>{% trans "Your answer has not yet been submitted. Click submit to finalize your submission." %}</p></b>
+        <% } else { %>
+          <p><b>{% trans "Submitted" %}</p></b>
+          <%= uploaded.student_answer %>
+        <% } %>
         <p>
           <% if (graded) { %>
             {% blocktrans %}Your score is <%= graded.score %> / <%= max_score %>{% endblocktrans %}<br/>
             <% if (graded.comment) { %>
               <b>{% trans "Instructor comment" %}</b> <%= graded.comment %><br/>
             <% } %>
-            <% if (annotated) { %>
-              <b>{% trans "Annotated file from instructor" %}</b>
-              <a href="<%= annotatedUrl %>"><%= annotated.filename %></a><br/>
-            <% } %>
-          <% } else if (uploaded) { %>
-            {% trans "This assignment has not yet been graded." %}
+          <% } else if (uploaded.finalized) { %>
+            {% trans "This problem has not yet been graded." %}
           <% } %>
         </p>
         <% if (upload_allowed) { %>
@@ -47,7 +50,17 @@
           </p>
         <% } %>
       </div>
+    <% } else { %>
+      <div class="sequential-status-message">
+        <p><b>{% trans "Click Submit to instantly submit your solution. By clicking Save you will be able to submit your answer later." %}</p></b>
+        <% if (upload_allowed) { %>
+          <p>
+            <a class="button finalize-upload">Submit</a>
+          </p>
+        <% } %>
+      </div>
     <% } %>
+
     <% if (solution) { %>
       <div class="solution">
         <%= solution %>
@@ -68,12 +81,9 @@
       <tr>
         <th class="header">{% trans "Username" %} <i class="icon fa fa-sort"/></th>
         <th class="header">{% trans "Name" %} <i class="icon fa fa-sort"/></th>
-        <th class="header">{% trans "Filename" %} <i class="icon fa fa-sort"/></th>
-        <th class="header">{% trans "Uploaded" %} <i class="icon fa fa-sort"/></th>
         <th class="header">{% trans "Submitted" %} <i class="icon fa fa-sort"/></th>
         <th class="header">{% trans "Grade" %} <i class="icon fa fa-sort"/></th>
         <th class="header">{% trans "Instructor's comments" %} <i class="icon fa fa-sort"/></th>
-        <th class="header">{% trans "Annotated" %} <i class="icon fa fa-sort"/></th>
         <th class="header" colspan="2">{% trans "Actions" %}</th>
       </tr>
       </thead>
@@ -83,14 +93,6 @@
         <tr id="row-<%= assignment.module_id %>"<% if (!assignment.finalized) { %> class="not-finalized"<% } %>>
           <td><%= assignment.username %></td>
           <td><%= assignment.fullname %></td>
-          <td>
-            <% if (assignment.filename) { %>
-              <a href="<%= downloadUrl %>?student_id=<%= assignment.student_id %>">
-                <%= assignment.filename %>
-              </a>
-            <% } %>
-          </td>
-          <td><%= assignment.timestamp %></td>
           <td>
             <% if (assignment.finalized) { %>
               {% trans "Yes" %}
@@ -109,13 +111,6 @@
           </td>
           <td><%= assignment.comment %></td>
           <td>
-            <% if (assignment.annotated && assignment.annotated != "None") { %>
-              <a href="<%= annotatedUrl %>?module_id=<%= assignment.module_id %>">
-                <%= assignment.annotated %>
-              </a>
-            <% } %>
-          </td>
-          <td>
             <% if (assignment.may_grade) { %>
               <a class="enter-grade-button button" href="#enter-grade-{{ id }}">
                 <% if (assignment.needs_approval) { %>
@@ -125,13 +120,6 @@
                 <% } %>
               </a>
            <% } %>
-          </td>
-          <td>
-            <div class="upload">
-              <label>{% trans "Upload annotated file" %}
-                <input class="fileupload" type="file" name="annotated"/>
-              </label>
-            </div>
           </td>
         </tr>
       <% } %>
@@ -148,9 +136,6 @@
     <div class="inner-wrapper" style="color: black; overflow: auto;">
       <header><h2><span class="display_name">{{ display_name }}</span> - {% trans "Staff Graded Assignment" %}</h2></header>
       <br/>
-      <div>
-        <a class="instructor-info-action button btn-download-all" href="#" id="download-init-button">{% trans "Download All Submissions" %}</a>
-      </div>
       <p class="task-message"></p>
       <div id="grade-info" style="display: block;">
         {% trans "Loading..." %}

@@ -2,121 +2,68 @@
 function StaffGradedAssignmentXBlock(runtime, element) {
     function xblock($, _) {
         var uploadUrl = runtime.handlerUrl(element, 'upload_assignment');
+        var getStudentState = runtime.handlerUrl(element, 'get_student_state');
         var finalizeUploadUrl = runtime.handlerUrl(element, 'finalize_uploaded_assignment');
-        var downloadUrl = runtime.handlerUrl(element, 'download_assignment');
-        var annotatedUrl = runtime.handlerUrl(element, 'download_annotated');
         var getStaffGradingUrl = runtime.handlerUrl(
           element, 'get_staff_grading_data'
         );
-        var staffDownloadUrl = runtime.handlerUrl(element, 'staff_download');
-        var staffAnnotatedUrl = runtime.handlerUrl(
-          element, 'staff_download_annotated'
-        );
-        var staffUploadUrl = runtime.handlerUrl(element, 'staff_upload_annotated');
         var enterGradeUrl = runtime.handlerUrl(element, 'enter_grade');
         var removeGradeUrl = runtime.handlerUrl(element, 'remove_grade');
-        var downloadSubmissionsUrl = runtime.handlerUrl(element, 'download_submissions');
-        var prepareDownloadSubmissionsUrl = runtime.handlerUrl(element, 'prepare_download_submissions');
-        var downloadSubmissionsStatusUrl = runtime.handlerUrl(element, 'download_submissions_status');
         var template = _.template($(element).find("#sga-tmpl").text());
         var gradingTemplate;
-        var preparingSubmissionsMsg = gettext(
-          'Started preparing student submissions zip file. This may take a while.'
-        );
 
         function render(state) {
-            // Add download urls to template context
-            state.downloadUrl = downloadUrl;
-            state.annotatedUrl = annotatedUrl;
             state.error = state.error || false;
-
-            // Render template
+            state.success = state.success || false;
             var content = $(element).find('#sga-content').html(template(state));
+            var form = $(element).find("#student-answer-form");
+
+            ClassicEditor.create( document.querySelector( '#student-answer-textarea' ) )
+            .then( editor => {
+                if (state.uploaded) {
+                    editor.setData(state.uploaded.student_answer);
+                }
+            })
+            .catch( error => {
+                console.error( error );
+            });
 
             $(content).find('.finalize-upload').on('click', function() {
-              $.post(finalizeUploadUrl).success(
+              $.post(
+                  finalizeUploadUrl,
+                  form.serialize()
+              ).success(
                   function (state) {
-                      render(state);
+                    render(state);
                   }
               ).fail(
                   function () {
-                      state.error = gettext('Submission failed. Please contact your course instructor.');
-                      render(state);
+                    state.error = gettext('Submission failed. Please contact your course instructor.');
+                    render(state);
                   }
               );
             });
 
-            // Set up file upload
-            var fileUpload = $(content).find('.fileupload').fileupload({
-                url: uploadUrl,
-                add: function(e, data) {
-                    var do_upload = $(content).find('.upload').html('');
-                    $(content).find('p.error').html('');
-                    do_upload.text(gettext('Uploading...'));
-                    var block = $(element).find(".sga-block");
-                    var data_max_size = block.attr("data-max-size");
-                    var size = data.files[0].size;
-                    if (!_.isUndefined(size)) {
-                        //if file size is larger max file size define in env(django)
-                        if (size >= data_max_size) {
-                            state.error = gettext('The file you are trying to upload is too large.');
-                            render(state);
-                            return;
-                        }
-                    }
-                    data.submit();
-                },
-                progressall: function(e, data) {
-                    var percent = parseInt(data.loaded / data.total * 100, 10);
-                    $(content).find('.upload').text(
-                        'Uploading... ' + percent + '%');
-                },
-                fail: function(e, data) {
-                    /**
-                     * Nginx and other sanely implemented servers return a
-                     * "413 Request entity too large" status code if an
-                     * upload exceeds its limit.  See the 'done' handler for
-                     * the not sane way that Django handles the same thing.
-                     */
-                    if (data.jqXHR.status === 413) {
-                        /* I guess we have no way of knowing what the limit is
-                         * here, so no good way to inform the user of what the
-                         * limit is.
-                         */
-                        state.error = gettext('The file you are trying to upload is too large.');
-                    } else {
-                        // Suitably vague
-                        state.error = gettext('There was an error uploading your file.');
-
-                        // Dump some information to the console to help someone
-                        // debug.
-                        console.log('There was an error with file upload.');
-                        console.log('event: ', e);
-                        console.log('data: ', data);
-                    }
-                    render(state);
-                },
-                done: function(e, data) {
-                    /* When you try to upload a file that exceeds Django's size
-                     * limit for file uploads, Django helpfully returns a 200 OK
-                     * response with a JSON payload of the form:
-                     *
-                     *   {'success': '<error message'}
-                     *
-                     * Thanks Obama!
-                     */
-                    if (data.result.success !== undefined) {
-                        // Actually, this is an error
-                        state.error = data.result.success;
+            form.off('submit').on('submit', function(event) {
+                event.preventDefault();
+                $.post(
+                    uploadUrl,
+                    form.serialize()
+                ).success(
+                    function (state) {
+                        state.success = gettext('Draft saved successfully.')
                         render(state);
-                    } else {
-                        // The happy path, no errors
-                        render(data.result);
+                        setTimeout(function(){
+                            $('#success-message').hide()
+                        }, 3000)
                     }
-                }
+                ).fail(
+                    function (state) {
+                        state.error = gettext('Could not save Draft. Please contact your course instructor.');
+                        render(state);
+                    }
+                );
             });
-
-            updateChangeEvent(fileUpload);
         }
 
         function renderStaffGrading(data) {
@@ -130,10 +77,6 @@ function StaffGradedAssignmentXBlock(runtime, element) {
             if (data.display_name !== '') {
                 $('.sga-block .display_name').html(data.display_name);
             }
-
-            // Add download urls to template context
-            data.downloadUrl = staffDownloadUrl;
-            data.annotatedUrl = staffAnnotatedUrl;
 
             // Render template
             $(element).find('#grade-info')
@@ -150,27 +93,7 @@ function StaffGradedAssignmentXBlock(runtime, element) {
                 .leanModal({closeButton: '#enter-grade-cancel'})
                 .on('click', handleGradeEntry);
 
-            // Set up annotated file upload
-            $(element).find('#grade-info .fileupload').each(function() {
-                var row = $(this).parents("tr");
-                var url = staffUploadUrl + "?module_id=" + row.data("module_id");
-                var fileUpload = $(this).fileupload({
-                    url: url,
-                    progressall: function(e, data) {
-                        var percent = parseInt(data.loaded / data.total * 100, 10);
-                        row.find('.upload').text(interpolate(gettext('Uploading... %(percent)s %'), {percent: percent}, true));
-                    },
-                    done: function(e, data) {
-                        // Add a time delay so user will notice upload finishing
-                        // for small files
-                        setTimeout(
-                            function() { renderStaffGrading(data.result); },
-                            3000);
-                    }
-                });
 
-                updateChangeEvent(fileUpload);
-            });
             $.tablesorter.addParser({
               id: 'alphanum',
               is: function(s) {
@@ -285,29 +208,19 @@ function StaffGradedAssignmentXBlock(runtime, element) {
             });
         }
 
-        function updateChangeEvent(fileUploadObj) {
-            fileUploadObj.off('change').on('change', function (e) {
-                var that = $(this).data('blueimpFileupload'),
-                    data = {
-                        fileInput: $(e.target),
-                        form: $(e.target.form)
-                    };
-
-                that._getFileInputFiles(data.fileInput).always(function (files) {
-                    data.files = files;
-                    if (that.options.replaceFileInput) {
-                        that._replaceFileInput(data.fileInput);
-                    }
-                    that._onAdd(e, data);
-                });
-            });
-        }
-
-        $(function($) { // onLoad
+        $(function($) { //
             var block = $(element).find('.sga-block');
-            var state = block.attr('data-state');
-            var parsedState = JSON.parse(state);
-            render(parsedState);
+            $.post(
+                getStudentState,
+            ).success(
+                function (state) {
+                  render(state);
+                }
+            ).fail(
+                function () {
+                  console.error('Unable to fetch XBlock state')
+                }
+            );
 
             var is_staff = isStaff();
             if (is_staff) {
@@ -323,97 +236,9 @@ function StaffGradedAssignmentXBlock(runtime, element) {
                     });
                 block.find('#staff-debug-info-button')
                     .leanModal();
-
-                $(element).find('#download-init-button').click(function(e) {
-                  e.preventDefault();
-                  var self = this;
-                  $.get(prepareDownloadSubmissionsUrl).then(
-                    function(data) {
-                      if (data["downloadable"]) {
-                        window.location = downloadSubmissionsUrl;
-                        $(self).removeClass("disabled");
-                      } else {
-                        $(self).addClass("disabled");
-                        $(element).find('.task-message')
-                          .show()
-                          .html(preparingSubmissionsMsg)
-                          .removeClass("ready-msg")
-                          .addClass("preparing-msg");
-                        pollSubmissionDownload();
-                      }
-                    }
-                  ).fail(
-                    function() {
-                      $(self).removeClass("disabled");
-                      $(element).find('.task-message')
-                        .show()
-                        .html(
-                          interpolate(
-                            gettext(
-                              'The download file was not created. Please try again or contact %(support_email)s'
-                            ),
-                            {support_email: $(element).find('.sga-block').attr("data-support-email")},
-                            true
-                          )
-                        )
-                        .removeClass("preparing-msg")
-                        .addClass("ready-msg");
-                    }
-                  );
-                });
             }
         });
 
-        function pollSubmissionDownload() {
-          pollUntilSuccess(downloadSubmissionsStatusUrl, checkResponse, 10000, 100).then(function() {
-            $(element).find('#download-init-button').removeClass("disabled");
-            $(element).find('.task-message')
-              .show()
-              .html(gettext("Student submission file ready for download"))
-              .removeClass("preparing-msg")
-              .addClass("ready-msg");
-          }).fail(function() {
-            $(element).find('#download-init-button').removeClass("disabled");
-            $(element).find('.task-message')
-              .show()
-              .html(
-                interpolate(
-                  gettext(
-                    'The download file was not created. Please try again or contact %(support_email)s'
-                  ),
-                  {support_email: $(element).find('.sga-block').attr("data-support-email")},
-                  true
-                )
-              );
-          });
-        }
-    }
-
-    function checkResponse(response) {
-      return response["zip_available"];
-    }
-
-    function pollUntilSuccess(url, checkSuccessFn, intervalMs, maxTries) {
-      var deferred = $.Deferred(),
-        tries = 1;
-
-      function makeLoopingRequest() {
-        $.get(url).success(function(response) {
-          if (checkSuccessFn(response)) {
-            deferred.resolve(response);
-          } else if (tries < maxTries) {
-            tries++;
-            setTimeout(makeLoopingRequest, intervalMs);
-          } else {
-            deferred.reject('Max tries exceeded.');
-          }
-        }).fail(function(err) {
-          deferred.reject('Request failed:\n' + err.responseText);
-        });
-      }
-      makeLoopingRequest();
-
-      return deferred.promise();
     }
 
     function loadjs(url) {
@@ -422,7 +247,6 @@ function StaffGradedAssignmentXBlock(runtime, element) {
             .attr('src', url)
             .appendTo(element);
     }
-
     if (require === undefined) {
         /**
          * The LMS does not use require.js (although it loads it...) and
