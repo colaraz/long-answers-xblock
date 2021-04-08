@@ -120,6 +120,11 @@
                 <% } %>
               </a>
            <% } %>
+           <% if (assignment.finalized) { %>
+              <a class="view-submission-button button" href="#view-submission-{{ id }}">
+                {% trans "View Assignment" %}
+              </a>
+           <% } %>
           </td>
         </tr>
       <% } %>
@@ -134,7 +139,7 @@
 
   <section aria-hidden="true" class="modal staff-modal" id="grade-{{ id }}" style="height: 75%" tabindex="-1">
     <div class="inner-wrapper" style="color: black; overflow: auto;">
-      <header><h2><span class="display_name">{{ display_name }}</span> - {% trans "Staff Graded Assignment" %}</h2></header>
+      <header><h2><span class="display_name">{{ display_name }}</span> - {% trans "Grading" %}</h2></header>
       <br/>
       <p class="task-message"></p>
       <div id="grade-info" style="display: block;">
@@ -193,6 +198,20 @@
           </div>
         </form>
       </div>
+    </div>
+  </section>
+
+  <section aria-hidden="true" class="modal staff-modal" id="view-submission-{{ id }}" tabindex="-1">
+    <div class="inner-wrapper" style="color: black">
+      <header><h2>
+        {% trans "Submission" %}
+      </h2></header>
+      <br/>
+      <div id="student-submission" style="display: block;">
+      </div>
+      <button type="button" id="view-submission-cancel">
+        {% trans "Close" %}
+      </button>
     </div>
   </section>
   {% endif %}

@@ -4,11 +4,10 @@ function StaffGradedAssignmentXBlock(runtime, element) {
         var uploadUrl = runtime.handlerUrl(element, 'upload_assignment');
         var getStudentState = runtime.handlerUrl(element, 'get_student_state');
         var finalizeUploadUrl = runtime.handlerUrl(element, 'finalize_uploaded_assignment');
-        var getStaffGradingUrl = runtime.handlerUrl(
-          element, 'get_staff_grading_data'
-        );
+        var getStaffGradingUrl = runtime.handlerUrl(element, 'get_staff_grading_data');
         var enterGradeUrl = runtime.handlerUrl(element, 'enter_grade');
         var removeGradeUrl = runtime.handlerUrl(element, 'remove_grade');
+        var getStudentSubmission = runtime.handlerUrl(element, 'get_student_submission');
         var template = _.template($(element).find("#sga-tmpl").text());
         var gradingTemplate;
 
@@ -18,40 +17,42 @@ function StaffGradedAssignmentXBlock(runtime, element) {
             var content = $(element).find('#sga-content').html(template(state));
             var form = $(element).find("#student-answer-form");
 
-            ClassicEditor.create( document.querySelector( '#student-answer-textarea' ) )
-            .then( editor => {
-                if (state.uploaded) {
-                    editor.setData(state.uploaded.student_answer);
-                }
-            })
-            .catch( error => {
-                console.error( error );
-            });
+            if (form.length) {
+                var uploaded = state.uploaded;
+                var student_answer = uploaded ? uploaded.student_answer: '';
+                CKEDITOR.replace("assignment_answer").setData(student_answer);
+            }
 
             $(content).find('.finalize-upload').on('click', function() {
-              $.post(
-                  finalizeUploadUrl,
-                  form.serialize()
-              ).success(
-                  function (state) {
-                    render(state);
-                  }
-              ).fail(
-                  function () {
-                    state.error = gettext('Submission failed. Please contact your course instructor.');
-                    render(state);
-                  }
-              );
+                for(var instanceName in CKEDITOR.instances){
+                    CKEDITOR.instances[instanceName].updateElement();
+                }
+                $.post(
+                    finalizeUploadUrl,
+                    form.serialize()
+                ).success(
+                    function (state) {
+                        render(state);
+                    }
+                ).fail(
+                    function () {
+                        state.error = gettext('Submission failed. Please contact your course instructor.');
+                        render(state);
+                    }
+                );
             });
 
             form.off('submit').on('submit', function(event) {
                 event.preventDefault();
+                for(var instanceName in CKEDITOR.instances){
+                    CKEDITOR.instances[instanceName].updateElement();
+                }
                 $.post(
                     uploadUrl,
                     form.serialize()
                 ).success(
                     function (state) {
-                        state.success = gettext('Draft saved successfully.')
+                        state.success = gettext('Answer saved successfully.')
                         render(state);
                         setTimeout(function(){
                             $('#success-message').hide()
@@ -93,6 +94,15 @@ function StaffGradedAssignmentXBlock(runtime, element) {
                 .leanModal({closeButton: '#enter-grade-cancel'})
                 .on('click', handleGradeEntry);
 
+            $(element).find('.view-submission-button')
+                .leanModal({closeButton: '#view-submission-cancel'})
+                .on('click', handleViewSubmission);
+
+            $(element).find('#view-submission-cancel').on('click', function() {
+                setTimeout(function() {
+                    $('#grade-submissions-button').click();
+                }, 225);
+            });
 
             $.tablesorter.addParser({
               id: 'alphanum',
@@ -145,6 +155,19 @@ function StaffGradedAssignmentXBlock(runtime, element) {
         function gradeFormError(error) {
             var form = $(element).find("#enter-grade-form");
             form.find('.error').html(error);
+        }
+
+        function handleViewSubmission(){
+            var row = $(this).parents("tr");
+            $.post(getStudentSubmission, {
+                student_id: row.data('student_id'),
+            }).success(
+                function(state){
+                    if (state.submission) {
+                        $('#student-submission').html(state.submission.student_answer);
+                    }
+                }
+            );
         }
 
         /* Click event handler for "enter grade" */
@@ -208,7 +231,7 @@ function StaffGradedAssignmentXBlock(runtime, element) {
             });
         }
 
-        $(function($) { //
+        $(function($) {
             var block = $(element).find('.sga-block');
             $.post(
                 getStudentState,

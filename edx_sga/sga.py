@@ -256,6 +256,13 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         return Response(json_body=self.staff_grading_data())
 
     @XBlock.handler
+    def get_student_submission(self, request, suffix=''):
+        require(self.is_course_staff())
+        student_id = request.params.get('student_id')
+        submission = self.get_submission(student_id)
+        return Response(json_body={'submission': submission['answer']})
+
+    @XBlock.handler
     def enter_grade(self, request, suffix=''):
         # pylint: disable=unused-argument
         """
@@ -352,7 +359,7 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
         fragment.add_css(_resource("static/css/edx_sga.css"))
         fragment.add_javascript(_resource("static/js/src/edx_sga.js"))
         fragment.add_javascript(_resource("static/js/src/jquery.tablesorter.min.js"))
-        fragment.add_javascript_url('https://cdn.ckeditor.com/ckeditor5/27.0.0/classic/ckeditor.js')
+        fragment.add_javascript_url('https://cdn.ckeditor.com/4.13.0/standard/ckeditor.js')
         fragment.initialize_js('StaffGradedAssignmentXBlock', self.student_state())
         return fragment
 
@@ -568,10 +575,6 @@ class StaffGradedAssignmentXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMix
                     'submission_id': submission['uuid'],
                     'username': student_module.student.username,
                     'fullname': student_module.student.profile.name,
-                    'student_answer': submission['answer']["student_answer"],
-                    'timestamp': submission['created_at'].strftime(
-                        DateTime.DATETIME_FORMAT
-                    ),
                     'score': score,
                     'approved': approved,
                     'needs_approval': instructor and needs_approval,
