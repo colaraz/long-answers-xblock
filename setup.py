@@ -1,9 +1,9 @@
-"""Setup for edx-sga XBlock."""
+"""Setup for long_question XBlock."""
 
 import os
 from setuptools import setup, find_packages
 
-import edx_sga
+import long_question_xblock
 
 
 def package_data(pkg, root_list):
@@ -17,12 +17,10 @@ def package_data(pkg, root_list):
     return {pkg: data}
 
 setup(
-    name='edx-sga',
-    version=edx_sga.__version__,
-    description='edx-sga Staff Graded Assignment XBlock',
-    license='Affero GNU General Public License v3 (GPLv3)',
-    url="https://github.com/mitodl/edx-sga",
-    author="MITx",
+    name='long-question-xblock',
+    version=long_question_xblock.__version__,
+    description='Long Question Assignment XBlock',
+    author="Edly",
     zip_safe=False,
     packages=find_packages(),
     include_package_data=True,
@@ -32,8 +30,8 @@ setup(
     ],
     entry_points={
         'xblock.v1': [
-            'edx_sga = edx_sga.sga:StaffGradedAssignmentXBlock',
+            'long_question_xblock = long_question_xblock.long_question:LongQuestionXBlock',
         ]
     },
-    package_data=package_data("edx_sga", ["static", "templates"]),
+    package_data=package_data("long_question_xblock", ["static", "templates"]),
 )

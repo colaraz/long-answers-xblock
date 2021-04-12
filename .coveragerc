@@ -2,4 +2,4 @@
 branch = True
 omit = ./.tox/*
 data_file = .coverage
-source = edx_sga
+source = long_question_xblock
