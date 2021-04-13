@@ -19,7 +19,7 @@ def package_data(pkg, root_list):
 setup(
     name='long-question-xblock',
     version=long_question_xblock.__version__,
-    description='Long Question Assignment XBlock',
+    description='Long Answer Assignment XBlock',
     author="Edly",
     zip_safe=False,
     packages=find_packages(),

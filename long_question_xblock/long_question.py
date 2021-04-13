@@ -73,7 +73,7 @@ class LongQuestionXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMixin, XBloc
 
     display_name = String(
         display_name=_("Display Name"),
-        default=_('Long Question'),
+        default=_('Long Answer'),
         scope=Scope.settings,
         help=_("This name appears in the horizontal navigation at the top of "
                "the page.")
@@ -208,7 +208,7 @@ class LongQuestionXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMixin, XBloc
             "finalized": False
         }
         student_item_dict = self.get_student_item_dict()
-        submissions_api.create_submission(student_item_dict, answer)
+        self.create_or_update_submission(student_item_dict, answer)
         return Response(json_body=self.student_state())
 
     @XBlock.handler
@@ -437,6 +437,17 @@ class LongQuestionXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMixin, XBloc
             # If I understand docs correctly, most recent submission should
             # be first
             return submissions[0]
+
+    def create_or_update_submission(self, student_item_dict=None, answer=None):
+        submission_data = self.get_submission()
+
+        if not submission_data:
+            submissions_api.create_submission(student_item_dict, answer)
+        else:
+            submission = Submission.objects.get(uuid=submission_data['uuid'])
+            submission.answer = answer
+            submission.submitted_at = django_now()
+            submission.save()
 
     def get_score(self, student_id=None):
         """
