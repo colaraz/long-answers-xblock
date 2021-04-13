@@ -26,10 +26,8 @@
 
     <% if (submitted) { %>
       <div class="sequential-status-message">
-        <% if (!submitted.finalized) { %>
-          <p><b>{% trans "Your answer has not been submitted yet. Click submit to finalize your submission." %}</p></b>
-        <% } else { %>
-          <p><b>{% trans "Submitted" %}</p></b>
+        <p><b><%= status_message %></b></p>
+        <% if (submitted.finalized) { %>
           <%= submitted.student_answer %>
         <% } %>
         <p>
