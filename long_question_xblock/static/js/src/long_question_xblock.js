@@ -170,11 +170,10 @@ LongQuestionXBlock.prototype.render = function(data){
         CKEDITOR.instances["student-answer-textarea"].updateElement();
         $.post(_LongQuestionXBlock.URL.SAVE_ASSIGNMENT, form.serialize())
         .success(function (data) {
-            data.success = gettext('Answer saved successfully.')
-            _LongQuestionXBlock.render(data);
+            $('#success-message').show();
             setTimeout(function(){
-                $('#success-message').hide()
-            }, 3000)
+                $('#success-message').hide();
+            }, 2000);
         }).fail(function (data) {
             data.error = gettext('Could not save Answer. Please contact your course instructor.');
             _LongQuestionXBlock.render(data);
