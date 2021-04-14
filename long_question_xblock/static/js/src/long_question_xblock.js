@@ -29,7 +29,6 @@ function LongQuestionXBlock(runtime, element) {
         DISPLAY_NAME: '.sga-block .display_name',
         ENTER_GRADE_FORM: '#enter-grade-form',
         ENTER_GRADE_BUTTON: '.enter-grade-button',
-        ENTER_GRADE_CANCEL_BUTTON: '#enter-grade-cancel',
         MODULE_ID_INPUT: '#module_id-input',
         REMOVE_GRADE: '#remove-grade',
         STATUS_MESSAGE: '.sequential-status-message p b',
@@ -39,40 +38,24 @@ function LongQuestionXBlock(runtime, element) {
         SUBMIT_ASSIGNMENT: '.finalize-upload',
         SUBMISSIONS: '#submissions',
         SUBMISSION_ID_INPUT: '#submission_id-input',
-        SUCCESS_MESSAGE: '#success-message',
+        SUCCESS_MESSAGE: '.success-message',
         GRADE_INFO: '#grade-info',
         GRADE_INPUT: '#grade-input',
         GRADE_MODAL: '.grade-modal',
         GRADE_SUBMISSION_BUTTON: '#grade-submissions-button',
-        VIEW_STUDENT_SUBMISSION: '#student-submission',
+        VIEW_STUDENT_SUBMISSION: '.student-submission',
         VIEW_SUBMISSION_BUTTON: '.view-submission-button',
-        VIEW_SUBMISSION_CANCEL_BUTTON: '#view-submission-cancel',
-    }
-
-    _LongQuestionXBlock.ELEMENT = {
-        LQ_BLOCK: $(_LongQuestionXBlock.SELECTOR.LQ_BLOCK, element),
-        LQ_TEMPLATE: $(_LongQuestionXBlock.SELECTOR.LQ_TEMPLATE, element),
-        LQ_CONTENT: $(_LongQuestionXBlock.SELECTOR.LQ_CONTENT, element),
-        COMMENT_INPUT: $(_LongQuestionXBlock.SELECTOR.COMMENT_INPUT, element),
-        DISPLAY_NAME: $(_LongQuestionXBlock.SELECTOR.DISPLAY_NAME, element),
-        ENTER_GRADE_FORM: $(_LongQuestionXBlock.SELECTOR.ENTER_GRADE_FORM, element),
-        ENTER_GRADE_CANCEL_BUTTON: $(_LongQuestionXBlock.SELECTOR.ENTER_GRADE_CANCEL_BUTTON, element),
-        MODULE_ID_INPUT: $(_LongQuestionXBlock.SELECTOR.MODULE_ID_INPUT, element),
-        STUDENT_NAME: $(_LongQuestionXBlock.SELECTOR.STUDENT_NAME, element),
-        SUBMISSION_ID_INPUT: $(_LongQuestionXBlock.SELECTOR.SUBMISSION_ID_INPUT, element),
-        GRADE_INFO: $(_LongQuestionXBlock.SELECTOR.GRADE_INFO, element),
-        GRADE_INPUT: $(_LongQuestionXBlock.SELECTOR.GRADE_INPUT, element),
-        GRADE_MODAL: $(_LongQuestionXBlock.SELECTOR.GRADE_MODAL, element),
-        GRADE_SUBMISSION_BUTTON: $(_LongQuestionXBlock.SELECTOR.GRADE_SUBMISSION_BUTTON, element),
-        VIEW_SUBMISSION_CANCEL_BUTTON: $(_LongQuestionXBlock.SELECTOR.VIEW_SUBMISSION_CANCEL_BUTTON, element),
+        CLOSE_BUTTON: '.close-button',
     }
 
     function xblock($, _) {
-        _LongQuestionXBlock.TEMPLATE.LQ_TEMPLATE = _.template(_LongQuestionXBlock.ELEMENT.LQ_TEMPLATE.text());
-        $(function($) {
-            _LongQuestionXBlock.init();
+        _LongQuestionXBlock.TEMPLATE.LQ_TEMPLATE = _.template(
+            $(_LongQuestionXBlock.SELECTOR.LQ_TEMPLATE, element).text()
+        );
 
-            if (_LongQuestionXBlock.isStaff()) {
+        $(function($) {
+            _LongQuestionXBlock.init(element);
+            if (_LongQuestionXBlock.isStaff(element)) {
                 _LongQuestionXBlock.initStaffGrading(element);
             }
         });
@@ -85,12 +68,12 @@ function LongQuestionXBlock(runtime, element) {
     }
 }
 
-LongQuestionXBlock.prototype.init = function(){
+LongQuestionXBlock.prototype.init = function(element){
     var _LongQuestionXBlock = this;
     $.post(_LongQuestionXBlock.URL.GET_STUDENT_STATE)
     .success(function (response) {
         response.status_message = _LongQuestionXBlock.getStatusMessage(response.submitted);
-        _LongQuestionXBlock.render(response);
+        _LongQuestionXBlock.render(element, response);
     })
     .fail(function () {
         console.error('Unable to fetch XBlock State')
@@ -104,46 +87,40 @@ LongQuestionXBlock.prototype.initStaffGrading = function(element){
         $(element).find(_LongQuestionXBlock.SELECTOR.LQ_GRADING_TEMPLATE).text()
     );
 
-    _LongQuestionXBlock.ELEMENT.GRADE_SUBMISSION_BUTTON
+    $(_LongQuestionXBlock.SELECTOR.GRADE_SUBMISSION_BUTTON, element)
         .leanModal()
-        .on('click', function() {
-            if(!_LongQuestionXBlock.STATE.STAFF_GRADING_DATA){
+        .on('click', function(event) {
+            if(!event.isTrigger){
                 $.ajax({
                     url: _LongQuestionXBlock.URL.GET_STAFF_GRADING,
                     success: (function(response) {
                         _LongQuestionXBlock.STATE.STAFF_GRADING_DATA = response;
-                        _LongQuestionXBlock.renderStaffGrading(response);
+                        _LongQuestionXBlock.renderStaffGrading(element, response);
                     })
                 });
             }else{
-                _LongQuestionXBlock.renderStaffGrading(_LongQuestionXBlock.STATE.STAFF_GRADING_DATA);
+                _LongQuestionXBlock.renderStaffGrading(element, _LongQuestionXBlock.STATE.STAFF_GRADING_DATA);
             }
         });
 
-    _LongQuestionXBlock.ELEMENT.LQ_BLOCK.find('#staff-debug-info-button')
+    $(_LongQuestionXBlock.SELECTOR.LQ_BLOCK, element).find('#staff-debug-info-button')
         .leanModal();
 
 
-    _LongQuestionXBlock.ELEMENT.ENTER_GRADE_CANCEL_BUTTON.on('click', function() {
+    $(_LongQuestionXBlock.SELECTOR.CLOSE_BUTTON, element).on('click', function() {
         setTimeout(function() {
-            _LongQuestionXBlock.ELEMENT.GRADE_SUBMISSION_BUTTON.click();
-            _LongQuestionXBlock.gradeFormError('');
-        }, 225);
-    });
-
-    _LongQuestionXBlock.ELEMENT.VIEW_SUBMISSION_CANCEL_BUTTON.on('click', function() {
-        setTimeout(function() {
-            _LongQuestionXBlock.ELEMENT.GRADE_SUBMISSION_BUTTON.click();
+            $(_LongQuestionXBlock.SELECTOR.GRADE_SUBMISSION_BUTTON, element).trigger("click");
+            _LongQuestionXBlock.gradeFormError(element, '');
         }, 225);
     });
 }
 
-LongQuestionXBlock.prototype.render = function(data){
+LongQuestionXBlock.prototype.render = function(element, data){
     var _LongQuestionXBlock = this;
     data.error = data.error || false;
     data.success = data.success || false;
 
-    var content = _LongQuestionXBlock.ELEMENT.LQ_CONTENT.html(
+    var content = $(_LongQuestionXBlock.SELECTOR.LQ_CONTENT, element).html(
         _LongQuestionXBlock.TEMPLATE.LQ_TEMPLATE(data)
     );
 
@@ -152,79 +129,83 @@ LongQuestionXBlock.prototype.render = function(data){
     if (form.length) {
         var submitted = data.submitted;
         var student_answer = submitted ? submitted.student_answer: '';
-        CKEDITOR.replace("assignment_answer").setData(student_answer);
+        var editorId = "textarea-" + _LongQuestionXBlock.getBlockID(element);
+        CKEDITOR.replace(editorId).setData(student_answer);
     }
 
     $(content).find(_LongQuestionXBlock.SELECTOR.SUBMIT_ASSIGNMENT).off('click').on('click', function() {
-        CKEDITOR.instances["student-answer-textarea"].updateElement();
+        var editorId = "textarea-" + _LongQuestionXBlock.getBlockID(element);
+        CKEDITOR.instances[editorId].updateElement();
+
         $.post(_LongQuestionXBlock.URL.SUBMIT_ASSIGNMENT, form.serialize())
         .success(function (data) {
             data.status_message = _LongQuestionXBlock.getStatusMessage(data.submitted);
-            _LongQuestionXBlock.render(data);
+            _LongQuestionXBlock.render(element, data);
         })
         .fail(function (data) {
             data.error = gettext('Submission failed. Please contact your course instructor.');
-            _LongQuestionXBlock.render(data);
+            _LongQuestionXBlock.render(element, data);
         });
     });
 
     form.off('submit').on('submit', function(event) {
         event.preventDefault();
-        CKEDITOR.instances["student-answer-textarea"].updateElement();
+        var editorId = "textarea-" + _LongQuestionXBlock.getBlockID(element);
+        CKEDITOR.instances[editorId].updateElement();
+
         $.post(_LongQuestionXBlock.URL.SAVE_ASSIGNMENT, form.serialize())
         .success(function (data) {
-            $(_LongQuestionXBlock.SELECTOR.STATUS_MESSAGE).html(_LongQuestionXBlock.getStatusMessage(data.submitted));
-            $(_LongQuestionXBlock.SELECTOR.SUCCESS_MESSAGE).show();
+            $(_LongQuestionXBlock.SELECTOR.STATUS_MESSAGE, element).html(_LongQuestionXBlock.getStatusMessage(data.submitted));
+            $(_LongQuestionXBlock.SELECTOR.SUCCESS_MESSAGE, element).show();
             setTimeout(function(){
-                $(_LongQuestionXBlock.SELECTOR.SUCCESS_MESSAGE).hide();
+                $(_LongQuestionXBlock.SELECTOR.SUCCESS_MESSAGE, element).hide();
             }, 2000);
         }).fail(function (data) {
             data.error = gettext('Could not save Answer. Please contact your course instructor.');
-            _LongQuestionXBlock.render(data);
+            _LongQuestionXBlock.render(element, data);
         });
     });
 
 }
 
-LongQuestionXBlock.prototype.renderStaffGrading = function(data) {
+LongQuestionXBlock.prototype.renderStaffGrading = function(element, data) {
     var _LongQuestionXBlock = this;
 
     if (data.hasOwnProperty('error')) {
-        _LongQuestionXBlock.gradeFormError(data['error']);
+        _LongQuestionXBlock.gradeFormError(element, data['error']);
     } else {
-        _LongQuestionXBlock.gradeFormError('');
-        _LongQuestionXBlock.ELEMENT.GRADE_MODAL.hide();
+        _LongQuestionXBlock.gradeFormError(element, '');
+        $(_LongQuestionXBlock.SELECTOR.GRADE_MODAL, element).hide();
     }
 
     if (data.display_name !== '') {
-        _LongQuestionXBlock.ELEMENT.DISPLAY_NAME.html(data.display_name);
+        $(_LongQuestionXBlock.SELECTOR.DISPLAY_NAME, element).html(data.display_name);
     }
 
     // Render template
-    _LongQuestionXBlock.ELEMENT.GRADE_INFO
+    $(_LongQuestionXBlock.SELECTOR.GRADE_INFO, element)
         .html(_LongQuestionXBlock.TEMPLATE.LQ_GRADING_TEMPLATE(data))
         .data(data);
 
     // Map data to table rows
+    var LQ_BLOCK_ELEMENT = $(_LongQuestionXBlock.SELECTOR.LQ_BLOCK, element);
     data.assignments.map(function(assignment) {
-      _LongQuestionXBlock.ELEMENT.LQ_BLOCK.find(
-        _LongQuestionXBlock.SELECTOR.STUDENT_GRADE_INFO + '-' + assignment.module_id
+        LQ_BLOCK_ELEMENT.find(
+            _LongQuestionXBlock.SELECTOR.STUDENT_GRADE_INFO + '-' + assignment.module_id
         ).data(assignment);
     });
 
     // Set up grade entry modal
-    _LongQuestionXBlock.ELEMENT.LQ_BLOCK
-        .find(_LongQuestionXBlock.SELECTOR.ENTER_GRADE_BUTTON)
-        .leanModal({closeButton: _LongQuestionXBlock.SELECTOR.ENTER_GRADE_CANCEL_BUTTON})
+    LQ_BLOCK_ELEMENT.find(_LongQuestionXBlock.SELECTOR.ENTER_GRADE_BUTTON)
+        .leanModal({closeButton: _LongQuestionXBlock.SELECTOR.CLOSE_BUTTON})
         .on('click', function (e) {
-            _LongQuestionXBlock.handleGradeEntry(e);
+            _LongQuestionXBlock.handleGradeEntry(element, e);
         });
 
-    _LongQuestionXBlock.ELEMENT.LQ_BLOCK
-        .find(_LongQuestionXBlock.SELECTOR.VIEW_SUBMISSION_BUTTON)
-        .leanModal({closeButton: _LongQuestionXBlock.SELECTOR.VIEW_SUBMISSION_CANCEL_BUTTON})
+    LQ_BLOCK_ELEMENT.find(_LongQuestionXBlock.SELECTOR.VIEW_SUBMISSION_BUTTON)
+        .leanModal({closeButton: _LongQuestionXBlock.SELECTOR.CLOSE_BUTTON})
         .on('click', function(e){
-            _LongQuestionXBlock.handleViewSubmission(e);
+            _LongQuestionXBlock.handleViewSubmission(element, e);
         });
 
     $.tablesorter.addParser({
@@ -257,7 +238,7 @@ LongQuestionXBlock.prototype.renderStaffGrading = function(data) {
       var s = '00000' + num;
       return s.substr(s.length-5);
     }
-    $(_LongQuestionXBlock.SELECTOR.SUBMISSIONS).tablesorter({
+    $(_LongQuestionXBlock.SELECTOR.SUBMISSIONS, element).tablesorter({
         headers: {
           2: { sorter: "alphanum" },
           3: { sorter: "alphanum" },
@@ -265,60 +246,59 @@ LongQuestionXBlock.prototype.renderStaffGrading = function(data) {
           7: { sorter: "alphanum" }
         }
     });
-    $(_LongQuestionXBlock.SELECTOR.SUBMISSIONS).trigger("update");
+    $(_LongQuestionXBlock.SELECTOR.SUBMISSIONS, element).trigger("update");
     var sorting = [[4,1], [1,0]];
-    $(_LongQuestionXBlock.SELECTOR.SUBMISSIONS).trigger("sorton",[sorting]);
+    $(_LongQuestionXBlock.SELECTOR.SUBMISSIONS, element).trigger("sorton",[sorting]);
 }
 
-LongQuestionXBlock.prototype.isStaff = function (){
+LongQuestionXBlock.prototype.isStaff = function (element){
     var _LongQuestionXBlock = this;
-    return _LongQuestionXBlock.ELEMENT.LQ_BLOCK.attr('data-staff') === 'True';
+    return $(_LongQuestionXBlock.SELECTOR.LQ_BLOCK, element).attr('data-staff') === 'True';
 }
 
-LongQuestionXBlock.prototype.handleViewSubmission = function (event){
+LongQuestionXBlock.prototype.handleViewSubmission = function (element, event){
     var _LongQuestionXBlock = this;
     var row = $(event.target).parents("tr");
-    $(_LongQuestionXBlock.SELECTOR.VIEW_STUDENT_SUBMISSION).html("Loading ... ");
+    $(_LongQuestionXBlock.SELECTOR.VIEW_STUDENT_SUBMISSION, element).html("Loading ... ");
     $.post(_LongQuestionXBlock.URL.GET_STUDENT_SUBMISSION, {
         student_id: row.data('student_id'),
     })
     .success(function(state){
         if (state && state.submission) {
-            $(_LongQuestionXBlock.SELECTOR.VIEW_STUDENT_SUBMISSION)
+            $(_LongQuestionXBlock.SELECTOR.VIEW_STUDENT_SUBMISSION, element)
             .html(state.submission.student_answer);
         }
     });
 }
 
-LongQuestionXBlock.prototype.handleGradeEntry = function (e) {
+LongQuestionXBlock.prototype.handleGradeEntry = function (element, e) {
     var _LongQuestionXBlock = this;
     var row = $(e.target).parents("tr");
-    var form = _LongQuestionXBlock.ELEMENT.ENTER_GRADE_FORM;
-    _LongQuestionXBlock.ELEMENT.STUDENT_NAME.text(row.data('fullname'));
-    _LongQuestionXBlock.ELEMENT.MODULE_ID_INPUT.val(row.data('module_id'));
-    _LongQuestionXBlock.ELEMENT.SUBMISSION_ID_INPUT.val(row.data('submission_id'));
-    _LongQuestionXBlock.ELEMENT.GRADE_INPUT.val(row.data('score'));
-    _LongQuestionXBlock.ELEMENT.COMMENT_INPUT.text(row.data('comment'));
+    var form = $(_LongQuestionXBlock.SELECTOR.ENTER_GRADE_FORM, element);
+    $(_LongQuestionXBlock.SELECTOR.STUDENT_NAME, element).text(row.data('fullname'));
+    $(_LongQuestionXBlock.SELECTOR.MODULE_ID_INPUT, element).val(row.data('module_id'));
+    $(_LongQuestionXBlock.SELECTOR.SUBMISSION_ID_INPUT, element).val(row.data('submission_id'));
+    $(_LongQuestionXBlock.SELECTOR.GRADE_INPUT, element).val(row.data('score'));
+    $(_LongQuestionXBlock.SELECTOR.COMMENT_INPUT, element).text(row.data('comment'));
 
     form.off('submit').on('submit', function(event) {
         event.preventDefault();
-        var max_score = row.parents(_LongQuestionXBlock.SELECTOR.GRADE_INFO).data('max_score');
-        var score = Number(_LongQuestionXBlock.ELEMENT.GRADE_INPUT.val());
+        var max_score = row.parents(_LongQuestionXBlock.SELECTOR.GRADE_INFO, element).data('max_score');
+        var score = Number($(_LongQuestionXBlock.SELECTOR.GRADE_INPUT, element).val());
 
         if (!score) {
-            _LongQuestionXBlock.gradeFormError('<br/>'+gettext('Grade must be a number.'));
+            _LongQuestionXBlock.gradeFormError(element, '<br/>'+gettext('Grade must be a number.'));
         } else if (score !== parseInt(score)) {
-            _LongQuestionXBlock.gradeFormError('<br/>'+gettext('Grade must be an integer.'));
+            _LongQuestionXBlock.gradeFormError(element, '<br/>'+gettext('Grade must be an integer.'));
         } else if (score < 0) {
-            _LongQuestionXBlock.gradeFormError('<br/>'+gettext('Grade must be positive.'));
+            _LongQuestionXBlock.gradeFormError(element, '<br/>'+gettext('Grade must be positive.'));
         } else if (score > max_score) {
-            _LongQuestionXBlock.gradeFormError('<br/>'+interpolate(gettext('Maximum score is %(max_score)s'), {max_score:max_score}, true));
+            _LongQuestionXBlock.gradeFormError(element, '<br/>'+interpolate(gettext('Maximum score is %(max_score)s'), {max_score:max_score}, true));
         } else {
             // No errors
             $.post(_LongQuestionXBlock.URL.ENTER_GRADE, form.serialize())
             .success(function(response){
-                _LongQuestionXBlock.STATE.STAFF_GRADING_DATA = response;
-                _LongQuestionXBlock.renderStaffGrading(response);
+                _LongQuestionXBlock.renderStaffGrading(element, response);
             });
         }
     });
@@ -331,18 +311,17 @@ LongQuestionXBlock.prototype.handleGradeEntry = function (e) {
 
         if (row.data('score')) {
           $.get(url).success(function(response) {
-              _LongQuestionXBlock.STATE.STAFF_GRADING_DATA = response;
-              _LongQuestionXBlock.renderStaffGrading(response);
+              _LongQuestionXBlock.renderStaffGrading(element, response);
           });
         } else {
-            _LongQuestionXBlock.gradeFormError('<br/>'+gettext('No grade to remove.'));
+            _LongQuestionXBlock.gradeFormError(element, '<br/>'+gettext('No grade to remove.'));
         }
     });
 }
 
-LongQuestionXBlock.prototype.gradeFormError = function (error) {
+LongQuestionXBlock.prototype.gradeFormError = function (element, error) {
     var _LongQuestionXBlock = this;
-    _LongQuestionXBlock.ELEMENT.ENTER_GRADE_FORM.find('.error').html(error);
+    $(_LongQuestionXBlock.SELECTOR.ENTER_GRADE_FORM, element).find('.error').html(error);
 }
 
 LongQuestionXBlock.prototype.getStatusMessage = function(submitted){
@@ -359,4 +338,9 @@ LongQuestionXBlock.prototype.getStatusMessage = function(submitted){
         status_message = gettext('Click Submit to instantly submit your solution. By clicking Save you will be able to submit your answer later.');
     }
     return status_message;
+}
+
+LongQuestionXBlock.prototype.getBlockID = function(element){
+    var _LongQuestionXBlock = this;
+    return $(_LongQuestionXBlock.SELECTOR.LQ_BLOCK, element).attr('data-id');
 }
