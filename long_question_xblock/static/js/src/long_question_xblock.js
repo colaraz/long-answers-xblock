@@ -32,6 +32,7 @@ function LongQuestionXBlock(runtime, element) {
         ENTER_GRADE_CANCEL_BUTTON: '#enter-grade-cancel',
         MODULE_ID_INPUT: '#module_id-input',
         REMOVE_GRADE: '#remove-grade',
+        STATUS_MESSAGE: '.sequential-status-message p b',
         STUDENT_NAME: '#student-name',
         STUDENT_ANSWER_FORM: '#student-answer-form',
         STUDENT_GRADE_INFO: '#grade-info #row',
@@ -88,6 +89,7 @@ LongQuestionXBlock.prototype.init = function(){
     var _LongQuestionXBlock = this;
     $.post(_LongQuestionXBlock.URL.GET_STUDENT_STATE)
     .success(function (response) {
+        response.status_message = _LongQuestionXBlock.getStatusMessage(response.submitted);
         _LongQuestionXBlock.render(response);
     })
     .fail(function () {
@@ -157,6 +159,7 @@ LongQuestionXBlock.prototype.render = function(data){
         CKEDITOR.instances["student-answer-textarea"].updateElement();
         $.post(_LongQuestionXBlock.URL.SUBMIT_ASSIGNMENT, form.serialize())
         .success(function (data) {
+            data.status_message = _LongQuestionXBlock.getStatusMessage(data.submitted);
             _LongQuestionXBlock.render(data);
         })
         .fail(function (data) {
@@ -170,9 +173,10 @@ LongQuestionXBlock.prototype.render = function(data){
         CKEDITOR.instances["student-answer-textarea"].updateElement();
         $.post(_LongQuestionXBlock.URL.SAVE_ASSIGNMENT, form.serialize())
         .success(function (data) {
-            $('#success-message').show();
+            $(_LongQuestionXBlock.SELECTOR.STATUS_MESSAGE).html(_LongQuestionXBlock.getStatusMessage(data.submitted));
+            $(_LongQuestionXBlock.SELECTOR.SUCCESS_MESSAGE).show();
             setTimeout(function(){
-                $('#success-message').hide();
+                $(_LongQuestionXBlock.SELECTOR.SUCCESS_MESSAGE).hide();
             }, 2000);
         }).fail(function (data) {
             data.error = gettext('Could not save Answer. Please contact your course instructor.');
@@ -339,4 +343,20 @@ LongQuestionXBlock.prototype.handleGradeEntry = function (e) {
 LongQuestionXBlock.prototype.gradeFormError = function (error) {
     var _LongQuestionXBlock = this;
     _LongQuestionXBlock.ELEMENT.ENTER_GRADE_FORM.find('.error').html(error);
+}
+
+LongQuestionXBlock.prototype.getStatusMessage = function(submitted){
+    var status_message = gettext('');
+    if (submitted) {
+        if (submitted.finalized) {
+            status_message = gettext('Submitted');
+        }
+        else{
+            status_message = gettext('Your answer has not been submitted yet. Click submit to finalize your submission.');
+        }
+    }
+    else{
+        status_message = gettext('Click Submit to instantly submit your solution. By clicking Save you will be able to submit your answer later.');
+    }
+    return status_message;
 }
