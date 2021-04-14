@@ -5,6 +5,11 @@ function LongQuestionXBlock(runtime, element) {
         STAFF_GRADING_DATA: null,
     };
 
+    _LongQuestionXBlock.CKCONFIG = {
+        removeButtons: 'About,Cut,Copy,Paste,PasteText,PasteFromWord,Anchor',
+        removePlugins: 'wsc,scayt,sourcearea'
+    }
+
     _LongQuestionXBlock.URL = {
         SAVE_ASSIGNMENT: runtime.handlerUrl(element, 'save_assignment'),
         GET_STUDENT_STATE: runtime.handlerUrl(element, 'get_student_state'),
@@ -130,7 +135,7 @@ LongQuestionXBlock.prototype.render = function(element, data){
         var submitted = data.submitted;
         var student_answer = submitted ? submitted.student_answer: '';
         var editorId = "textarea-" + _LongQuestionXBlock.getBlockID(element);
-        CKEDITOR.replace(editorId).setData(student_answer);
+        CKEDITOR.replace(editorId, _LongQuestionXBlock.CKCONFIG).setData(student_answer);
     }
 
     $(content).find(_LongQuestionXBlock.SELECTOR.SUBMIT_ASSIGNMENT).off('click').on('click', function() {
