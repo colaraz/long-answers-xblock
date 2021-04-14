@@ -69,7 +69,16 @@ class LongQuestionXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMixin, XBloc
     """
     has_score = True
     icon_class = 'problem'
-    editable_fields = ('display_name', 'points', 'weight', 'showanswer', 'solution')
+    editable_fields = ('display_name', 'points', 'weight', 'showanswer', 'solution', 'question')
+
+    question = String(
+        help=_("Question to show to the user"),
+        display_name=_("Question"),
+        scope=Scope.settings,
+        multiline_editor='html',
+        resettable_editor=False,
+        default='',
+    )
 
     display_name = String(
         display_name=_("Display Name"),
@@ -109,6 +118,7 @@ class LongQuestionXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMixin, XBloc
         scope=Scope.user_state,
         help=_("Feedback given to student by instructor.")
     )
+
 
     student_answer = String(
         display_name=_("Answer"),
@@ -538,8 +548,10 @@ class LongQuestionXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMixin, XBloc
         else:
             solution = ''
 
+
         return {
             "display_name": force_text(self.display_name),
+            "question": self.runtime.replace_urls(force_text(self.question)),
             "submitted": submitted,
             "graded": graded,
             "max_score": self.max_score(),

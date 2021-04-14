@@ -9,7 +9,11 @@
         <b><%= display_name %></b>
       </p>
     <% } %>
-
+    <% if (question) { %>
+      <div class="question">
+        <%= question %>
+      </div>
+    <% } %>
     <% if (upload_allowed) { %>
       <form id="student-answer-form">
         <div id="toolbar-container"></div>
@@ -107,6 +111,11 @@
           </td>
           <td><%= assignment.comment %></td>
           <td>
+            <% if (assignment.finalized) { %>
+              <a class="view-submission-button button" href="#view-submission-{{ id }}">
+                {% trans "View Assignment" %}
+              </a>
+           <% } %>
             <% if (assignment.may_grade) { %>
               <a class="enter-grade-button button" href="#enter-grade-{{ id }}">
                 <% if (assignment.needs_approval) { %>
@@ -114,11 +123,6 @@
                 <% } else { %>
                   {% trans "Enter grade" %}
                 <% } %>
-              </a>
-           <% } %>
-           <% if (assignment.finalized) { %>
-              <a class="view-submission-button button" href="#view-submission-{{ id }}">
-                {% trans "View Assignment" %}
               </a>
            <% } %>
           </td>
