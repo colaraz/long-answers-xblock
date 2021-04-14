@@ -69,7 +69,7 @@ class LongQuestionXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMixin, XBloc
     """
     has_score = True
     icon_class = 'problem'
-    editable_fields = ('display_name', 'points', 'weight', 'showanswer', 'solution', 'question')
+    editable_fields = ('display_name', 'question', 'points', 'weight', 'showanswer', 'solution')
 
     question = String(
         help=_("Question to show to the user"),
