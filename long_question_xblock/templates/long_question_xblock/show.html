@@ -1,6 +1,6 @@
 {% load i18n %}
 
-<div class="sga-block"
+<div class="sga-block" data-id="{{ id }}"
      data-max-size="{{ max_file_size }}" data-support-email="{{ support_email }}"
      data-staff="{{ is_course_staff }}">
   <script type="text/template" id="sga-tmpl">
@@ -13,14 +13,14 @@
     <% if (upload_allowed) { %>
       <form id="student-answer-form">
         <div id="toolbar-container"></div>
-        <textarea id="student-answer-textarea" name="assignment_answer"/>
+        <textarea id="textarea-{{ id }}" name="assignment_answer"/>
         <p class="upload">
         <label>
           {% trans "Save" %}
           <input class="fileupload" type="submit"/>
         </label>
         </p>
-          <p id="success-message" style="display:none;"><b>{% trans "Your answer has been saved" %}</b></p>
+          <p class="success-message" style="display:none;"><b>{% trans "Your answer has been saved" %}</b></p>
       </form>
     <% } %>
 
@@ -188,7 +188,7 @@
             <button type="button" id="remove-grade">
               {% trans "Remove grade" %}
             </button>
-            <button type="button" id="enter-grade-cancel">
+            <button type="button" class="close-button">
               {% trans "Cancel" %}
             </button>
           </div>
@@ -203,9 +203,9 @@
         {% trans "Submission" %}
       </h1></header>
       <br/>
-      <div id="student-submission" style="display: block;">
+      <div class="student-submission" style="display: block;">
       </div>
-      <button type="button" id="view-submission-cancel">
+      <button type="button" class="close-button">
         {% trans "Close" %}
       </button>
     </div>
