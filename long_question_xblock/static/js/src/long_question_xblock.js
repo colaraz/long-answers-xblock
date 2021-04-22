@@ -285,7 +285,7 @@ LongQuestionXBlock.prototype.handleGradeEntry = function (element, e) {
     $(_LongQuestionXBlock.SELECTOR.MODULE_ID_INPUT, element).val(row.data('module_id'));
     $(_LongQuestionXBlock.SELECTOR.SUBMISSION_ID_INPUT, element).val(row.data('submission_id'));
     $(_LongQuestionXBlock.SELECTOR.GRADE_INPUT, element).val(row.data('score'));
-    $(_LongQuestionXBlock.SELECTOR.COMMENT_INPUT, element).text(row.data('comment'));
+    $(_LongQuestionXBlock.SELECTOR.COMMENT_INPUT, element).val(row.data('comment'));
 
     form.off('submit').on('submit', function(event) {
         event.preventDefault();
