@@ -7,7 +7,7 @@ function LongQuestionXBlock(runtime, element) {
 
     _LongQuestionXBlock.CKCONFIG = {
         removeButtons: 'About,Cut,Copy,Paste,PasteText,PasteFromWord,Anchor',
-        removePlugins: 'wsc,scayt,sourcearea'
+        removePlugins: 'wsc,scayt,sourcearea,tableselection,tabletools,contextmenu',
     }
 
     _LongQuestionXBlock.URL = {
@@ -122,6 +122,7 @@ LongQuestionXBlock.prototype.initStaffGrading = function(element){
 
 LongQuestionXBlock.prototype.render = function(element, data){
     var _LongQuestionXBlock = this;
+    var editorId = "textarea-" + _LongQuestionXBlock.getBlockID(element);
     data.error = data.error || false;
     data.success = data.success || false;
 
@@ -134,12 +135,13 @@ LongQuestionXBlock.prototype.render = function(element, data){
     if (form.length) {
         var submitted = data.submitted;
         var student_answer = submitted ? submitted.student_answer: '';
-        var editorId = "textarea-" + _LongQuestionXBlock.getBlockID(element);
         CKEDITOR.replace(editorId, _LongQuestionXBlock.CKCONFIG).setData(student_answer);
+        CKEDITOR.instances[editorId].on('paste', function(evt) {
+            evt.cancel();
+        });
     }
 
     $(content).find(_LongQuestionXBlock.SELECTOR.SUBMIT_ASSIGNMENT).off('click').on('click', function() {
-        var editorId = "textarea-" + _LongQuestionXBlock.getBlockID(element);
         CKEDITOR.instances[editorId].updateElement();
 
         $.post(_LongQuestionXBlock.URL.SUBMIT_ASSIGNMENT, form.serialize())
@@ -155,7 +157,6 @@ LongQuestionXBlock.prototype.render = function(element, data){
 
     form.off('submit').on('submit', function(event) {
         event.preventDefault();
-        var editorId = "textarea-" + _LongQuestionXBlock.getBlockID(element);
         CKEDITOR.instances[editorId].updateElement();
 
         $.post(_LongQuestionXBlock.URL.SAVE_ASSIGNMENT, form.serialize())
@@ -303,6 +304,7 @@ LongQuestionXBlock.prototype.handleGradeEntry = function (element, e) {
             // No errors
             $.post(_LongQuestionXBlock.URL.ENTER_GRADE, form.serialize())
             .success(function(response){
+                _LongQuestionXBlock.STATE.STAFF_GRADING_DATA = response;
                 _LongQuestionXBlock.renderStaffGrading(element, response);
             });
         }
@@ -316,6 +318,7 @@ LongQuestionXBlock.prototype.handleGradeEntry = function (element, e) {
 
         if (row.data('score')) {
           $.get(url).success(function(response) {
+              _LongQuestionXBlock.STATE.STAFF_GRADING_DATA = response;
               _LongQuestionXBlock.renderStaffGrading(element, response);
           });
         } else {
