@@ -115,15 +115,15 @@
               <a class="view-submission-button button" href="#view-submission-{{ id }}">
                 {% trans "View Assignment" %}
               </a>
-           <% } %>
-            <% if (assignment.may_grade) { %>
-              <a class="enter-grade-button button" href="#enter-grade-{{ id }}">
-                <% if (assignment.needs_approval) { %>
-                  {% trans "Approve grade" %}
-                <% } else { %>
-                  {% trans "Enter grade" %}
-                <% } %>
-              </a>
+              <% if (assignment.may_grade) { %>
+                <a class="enter-grade-button button" href="#enter-grade-{{ id }}">
+                  <% if (assignment.needs_approval) { %>
+                    {% trans "Approve grade" %}
+                  <% } else { %>
+                    {% trans "Enter grade" %}
+                  <% } %>
+                </a>
+             <% } %>
            <% } %>
           </td>
         </tr>

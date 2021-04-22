@@ -143,16 +143,24 @@ LongQuestionXBlock.prototype.render = function(element, data){
 
     $(content).find(_LongQuestionXBlock.SELECTOR.SUBMIT_ASSIGNMENT).off('click').on('click', function() {
         CKEDITOR.instances[editorId].updateElement();
+        var submitAnswer = true;
+        if(CKEDITOR.instances[editorId].getData() === ""){
+            if (!confirm('Submit Empty Answer?')) {
+                submitAnswer = false;
+            }
+        }
 
-        $.post(_LongQuestionXBlock.URL.SUBMIT_ASSIGNMENT, form.serialize())
-        .success(function (data) {
-            data.status_message = _LongQuestionXBlock.getStatusMessage(data.submitted);
-            _LongQuestionXBlock.render(element, data);
-        })
-        .fail(function (data) {
-            data.error = gettext('Submission failed. Please contact your course instructor.');
-            _LongQuestionXBlock.render(element, data);
-        });
+        if (submitAnswer) {
+            $.post(_LongQuestionXBlock.URL.SUBMIT_ASSIGNMENT, form.serialize())
+            .success(function (data) {
+                data.status_message = _LongQuestionXBlock.getStatusMessage(data.submitted);
+                _LongQuestionXBlock.render(element, data);
+            })
+            .fail(function (data) {
+                data.error = gettext('Submission failed. Please contact your course instructor.');
+                _LongQuestionXBlock.render(element, data);
+            });
+        }
     });
 
     form.off('submit').on('submit', function(event) {
