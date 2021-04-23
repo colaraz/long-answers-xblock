@@ -1,9 +1,9 @@
-"""Setup for long_question XBlock."""
+"""Setup for long_answer XBlock."""
 
 import os
 from setuptools import setup, find_packages
 
-import long_question_xblock
+import long_answer_xblock
 
 
 def package_data(pkg, root_list):
@@ -17,8 +17,8 @@ def package_data(pkg, root_list):
     return {pkg: data}
 
 setup(
-    name='long-question-xblock',
-    version=long_question_xblock.__version__,
+    name='long-answer-xblock',
+    version=long_answer_xblock.__version__,
     description='Long Answer Assignment XBlock',
     author="Edly",
     zip_safe=False,
@@ -30,8 +30,8 @@ setup(
     ],
     entry_points={
         'xblock.v1': [
-            'long_question_xblock = long_question_xblock.long_question:LongQuestionXBlock',
+            'long_answer_xblock = long_answer_xblock.long_answer:LongAnswerXBlock',
         ]
     },
-    package_data=package_data("long_question_xblock", ["static", "templates"]),
+    package_data=package_data("long_answer_xblock", ["static", "templates"]),
 )
