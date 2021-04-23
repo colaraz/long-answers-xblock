@@ -2,4 +2,4 @@
 branch = True
 omit = ./.tox/*
 data_file = .coverage
-source = long_question_xblock
+source = long_answer_xblock
