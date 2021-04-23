@@ -300,7 +300,7 @@ LongAnswerXBlock.prototype.handleGradeEntry = function (element, e) {
         var max_score = row.parents(_LongAnswerXBlock.SELECTOR.GRADE_INFO, element).data('max_score');
         var score = Number($(_LongAnswerXBlock.SELECTOR.GRADE_INPUT, element).val());
 
-        if (!score) {
+        if (!score && score !== 0) {
             _LongAnswerXBlock.gradeFormError(element, '<br/>'+gettext('Grade must be a number.'));
         } else if (score !== parseInt(score)) {
             _LongAnswerXBlock.gradeFormError(element, '<br/>'+gettext('Grade must be an integer.'));
