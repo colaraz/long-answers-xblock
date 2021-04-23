@@ -1,3 +1,3 @@
-recursive-include long_question_xblock/static *
-recursive-include long_question_xblock/templates *
-recursive-include long_question_xblock/locale *
+recursive-include long_answer_xblock/static *
+recursive-include long_answer_xblock/templates *
+recursive-include long_answer_xblock/locale *
