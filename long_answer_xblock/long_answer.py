@@ -304,6 +304,7 @@ class LongAnswerXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMixin, XBlock)
         else:
             state['staff_score'] = score
         state['comment'] = request.params.get('comment', '')
+        state['score'] = {'raw_earned': score, 'raw_possible': self.max_score()}
         module.state = json.dumps(state)
         module.save()
         log.info(
