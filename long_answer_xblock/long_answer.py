@@ -559,6 +559,7 @@ class LongAnswerXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMixin, XBlock)
             "upload_allowed": self.upload_allowed(submission_data=submission),
             "solution": solution,
             "base_asset_url": StaticContent.get_base_url_path_for_course_assets(self.location.course_key),
+            "answer_available": self.answer_available()
         }
 
     def staff_grading_data(self):

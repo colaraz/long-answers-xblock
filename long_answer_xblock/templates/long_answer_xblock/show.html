@@ -36,9 +36,13 @@
         <% } %>
         <p>
           <% if (graded) { %>
-            {% blocktrans %}Your score is <%= graded.score %> / <%= max_score %>{% endblocktrans %}<br/>
-            <% if (graded.comment) { %>
-              <b>{% trans "Instructor comment" %}</b> <%= graded.comment %><br/>
+            <% if(answer_available) { %>
+              {% blocktrans %}Your score is <%= graded.score %> / <%= max_score %>{% endblocktrans %}<br/>
+              <% if (graded.comment) { %>
+                <b>{% trans "Instructor comment" %}</b> <%= graded.comment %><br/>
+              <% } %>
+            <% } else { %>
+              {% trans "Scores and remarks are hidden." %}
             <% } %>
           <% } else if (submitted.finalized) { %>
             {% trans "This problem has not been graded yet." %}
