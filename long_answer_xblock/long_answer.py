@@ -550,8 +550,12 @@ class LongAnswerXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMixin, XBlock)
             solution = ''
             
         is_due_date_passed = False
-        if self.show_correctness == 'past_due' and self.due and self.due < utcnow():
-            is_due_date_passed = True
+        show_correctness = self.show_correctness
+        if show_correctness == 'past_due':
+            if not self.due:
+                show_correctness = "always"
+            elif self.due < utcnow():
+                is_due_date_passed = True
 
         return {
             "display_name": force_text(self.display_name),
@@ -562,7 +566,7 @@ class LongAnswerXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMixin, XBlock)
             "upload_allowed": self.upload_allowed(submission_data=submission),
             "solution": solution,
             "base_asset_url": StaticContent.get_base_url_path_for_course_assets(self.location.course_key),
-            "show_correctness": self.show_correctness,
+            "show_correctness": show_correctness,
             "is_due_date_passed": is_due_date_passed
         }
 
