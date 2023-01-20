@@ -245,6 +245,8 @@ class LongAnswerXBlock(StudioEditableXBlockMixin, ShowAnswerXBlockMixin, XBlock)
             # Editing the Submission record directly since the API doesn't support it
             submission = Submission.objects.get(uuid=submission_data['uuid'])
             if not submission.answer.get('finalized'):
+                if request.params.get('assignment_answer'):
+                    submission.answer['student_answer'] = request.params['assignment_answer']
                 submission.answer['finalized'] = True
                 submission.submitted_at = django_now()
                 submission.save()
